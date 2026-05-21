@@ -80,7 +80,7 @@ def parse_italian_number(text: str) -> Optional[float]:
       - 1234.56    (plain decimal)
       - 1234,56    (comma decimal)
     """
-    text = text.strip().replace("€", "").replace("€", "").strip()
+    text = text.strip().replace("€", "").strip()
     text = text.replace(" ", "")
 
     # Italian: 1.234,56

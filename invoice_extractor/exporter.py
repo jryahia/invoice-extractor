@@ -16,6 +16,7 @@ from typing import List, Optional
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill, numbers
 from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.worksheet import Worksheet
 
 from .extractor import ExtractedInvoice
 
@@ -43,7 +44,7 @@ COLUMNS = [
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 
-def _style_header(ws: Workbook, num_cols: int) -> None:
+def _style_header(ws: Worksheet, num_cols: int) -> None:
     """Apply header styling to the first row."""
     for col_idx in range(1, num_cols + 1):
         cell = ws.cell(row=1, column=col_idx)
@@ -52,14 +53,14 @@ def _style_header(ws: Workbook, num_cols: int) -> None:
         cell.alignment = Alignment(horizontal="center", vertical="center")
 
 
-def _auto_width(ws: Workbook, widths: List[tuple]) -> None:
+def _auto_width(ws: Worksheet, widths: List[tuple]) -> None:
     """Set column widths from predefined list."""
     for col_idx, (_, width) in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(col_idx)].width = width
 
 
 def _write_data_row(
-    ws: Workbook,
+    ws: Worksheet,
     row_idx: int,
     invoice: ExtractedInvoice,
     num_cols: int,
