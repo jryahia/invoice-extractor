@@ -10,7 +10,21 @@ Supports multiple common formats for:
 Each pattern group is a list of regex strings tried in order.
 """
 
+from __future__ import annotations
+
+import json
+import logging
+import re
+from pathlib import Path
 from typing import Dict, List
+
+logger = logging.getLogger("invoice_extractor")
+
+# ── Shared regex fragments ─────────────────────────────────────────────────
+
+# An Italian-formatted amount, optionally signed or wrapped in parentheses
+# (both are used on note di credito to mark a negative total).
+_AMOUNT = r"\(?\s*[-−]?\s*\d{1,3}(?:[. ]\d{3})*(?:,\d{1,2})?\s*\)?"
 
 # ── Core invoice field patterns ────────────────────────────────────────────
 
@@ -36,18 +50,18 @@ PATTERNS: Dict[str, List[str]] = {
         r"(\d{1,2})\s*(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\s*(\d{4})",
     ],
     "total": [
-        # "Totale Fattura EUR 1.250,00" (with EUR/USD currency code)
-        r"(?:totale|importo)\s*(?:fattura|documento)?\s*[.:]?\s*(?:€|€|eur|euro|usd)?\s*([\d]{1,3}(?:[. ]\d{3})*(?:,\d{2})?)",
+        # "Totale Fattura EUR 1.250,00" / "Totale Fattura EUR -450,00" (credit note)
+        rf"(?:totale|importo)\s*(?:fattura|documento)?\s*[.:]?\s*(?:€|€|eur|euro|usd)?\s*({_AMOUNT})",
         # "Totale Fattura € 1.234,56"
-        r"(?:totale|importo\s*totale|totale\s*documento|totale\s*da\s*pagare|totale\s*fattura)\s*[.:]?\s*[€€]?\s*([\d]{1,3}(?:[. ]\d{3})*(?:,\d{2})?)",
+        rf"(?:totale|importo\s*totale|totale\s*documento|totale\s*da\s*pagare|totale\s*fattura)\s*[.:]?\s*[€€]?\s*({_AMOUNT})",
         # "Importo: € 1.234,56"
-        r"importo[.:]?\s*[€€]?\s*([\d]{1,3}(?:[. ]\d{3})*(?:,\d{2})?)",
+        rf"importo[.:]?\s*[€€]?\s*({_AMOUNT})",
         # "€ 1.234,56" or "EUR 1.234,56"
-        r"(?:€|€|eur|euro)\s*([\d]{1,3}(?:[. ]\d{3})*(?:,\d{2})?)",
+        rf"(?:€|€|eur|euro)\s*({_AMOUNT})",
         # Plain number with 2 decimals near "totale" context
-        r"(?:(?:totale|importo|tot\.?)\s*[.:]?\s*)(\d{1,3}(?:[. ]\d{3})*(?:,\d{2}))",
+        r"(?:(?:totale|importo|tot\.?)\s*[.:]?\s*)(\(?\s*[-−]?\s*\d{1,3}(?:[. ]\d{3})*,\d{2}\s*\)?)",
         # "Tot. € 1234.56" — dot as decimal
-        r"(?:totale|importo)\s*(?:€|€|eur)?\s*([\d]+(?:,\d{1,2}|\.\d{2}))",
+        r"(?:totale|importo)\s*(?:€|€|eur)?\s*([-−]?\d+(?:,\d{1,2}|\.\d{2}))",
     ],
     "supplier_name": [
         # "Fornitore: Nome Azienda S.r.l."
@@ -101,3 +115,79 @@ ITALIAN_MONTHS: Dict[str, str] = {
     "novembre": "11",
     "dicembre": "12",
 }
+
+# ── Italian labels for the extracted fields ───────────────────────────────
+
+FIELD_LABELS_IT: Dict[str, str] = {
+    "invoice_number": "numero fattura",
+    "date": "data",
+    "total": "totale",
+    "supplier_name": "fornitore",
+    "vat_number": "partita IVA",
+}
+
+
+# ── Custom pattern loading (--config) ─────────────────────────────────────
+
+
+def load_patterns_from_config(config_path: Path) -> Dict[str, List[str]]:
+    """
+    Merge custom regex patterns from a ``config.json`` into :data:`PATTERNS`.
+
+    The config file may contain a ``"patterns"`` object mapping a field name to
+    a list of regex strings, and a ``"date_formats"`` list. Custom patterns are
+    tried *before* the built-in ones, so a client can override the defaults
+    without losing them as a fallback.
+
+    Args:
+        config_path: Path to the JSON configuration file.
+
+    Returns:
+        The updated :data:`PATTERNS` dictionary.
+
+    Raises:
+        ValueError: If the file is not valid JSON or a pattern is not a valid
+            regular expression. The message is in Italian (user-facing).
+
+    Example:
+        >>> load_patterns_from_config(Path("config.json"))  # doctest: +SKIP
+    """
+    try:
+        raw = json.loads(config_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"File di configurazione non valido ({config_path.name}): {exc}"
+        ) from exc
+    except OSError as exc:
+        raise ValueError(
+            f"Impossibile leggere il file di configurazione {config_path}: {exc}"
+        ) from exc
+
+    custom = raw.get("patterns", {})
+    if not isinstance(custom, dict):
+        raise ValueError("La chiave 'patterns' deve essere un oggetto JSON.")
+
+    for field_name, regexes in custom.items():
+        if field_name not in PATTERNS:
+            logger.warning("Campo sconosciuto nella configurazione: '%s' (ignorato)", field_name)
+            continue
+        if isinstance(regexes, str):
+            regexes = [regexes]
+        valid: List[str] = []
+        for rx in regexes:
+            try:
+                re.compile(rx)
+            except re.error as exc:
+                raise ValueError(
+                    f"Espressione regolare non valida per '{field_name}': {rx} ({exc})"
+                ) from exc
+            valid.append(rx)
+        # Custom patterns take priority, built-ins stay as fallback.
+        PATTERNS[field_name] = valid + [p for p in PATTERNS[field_name] if p not in valid]
+        logger.info("Caricati %d pattern personalizzati per '%s'", len(valid), field_name)
+
+    for fmt in raw.get("date_formats", []):
+        if fmt not in DATE_FORMATS:
+            DATE_FORMATS.insert(0, fmt)
+
+    return PATTERNS
