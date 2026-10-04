@@ -1,20 +1,38 @@
-# Invoice Extractor — B2B PDF → Excel
+# Invoice Extractor
+
+**Batch-extracts invoice number, date, total, supplier and VAT number from Italian PDF invoices into a formatted Excel file.**
+
+![Python](https://img.shields.io/badge/Python-161b22?style=for-the-badge&labelColor=161b22&color=161b22) ![pdfplumber](https://img.shields.io/badge/pdfplumber-161b22?style=for-the-badge&labelColor=161b22&color=161b22) ![openpyxl](https://img.shields.io/badge/openpyxl-161b22?style=for-the-badge&labelColor=161b22&color=161b22) ![Typer](https://img.shields.io/badge/Typer-161b22?style=for-the-badge&labelColor=161b22&color=161b22) ![Gradio](https://img.shields.io/badge/Gradio-161b22?style=for-the-badge&labelColor=161b22&color=161b22)
+
+```mermaid
+flowchart LR
+    S0["Folder of PDF invoices"]
+    S1["Text extraction"]
+    S2["Italian invoice patterns (configurable)"]
+    S3["Validation"]
+    S4["Formatted Excel + summary"]
+    S0 --> S1 --> S2 --> S3 --> S4
+```
+
+## Problem it solves
+
+Italian small businesses still retype fatture and ricevute into spreadsheets. This tool processes a folder of PDFs in one run and produces an Excel file with totals and a summary sheet.
 
 Extract structured data from **Italian PDF invoices** (fatture, ricevute fiscali
-, DDT, note di credito/debito) and export to a clean, formatted Excel (.xlsx) 
+, DDT, note di credito/debito) and export to a clean, formatted Excel (.xlsx)
 file with totals and summary.
 
 Built for Italian small businesses dealing with batch invoice processing.
 
 ## Features
 
-- 📄 **Batch processing** — drop in 50+ PDFs at once
-- 🔍 **Smart extraction** — invoice number, date, total, supplier name, VAT (Partita IVA)
-- 🇮🇹 **Italian invoice support** — patterns for fatture, ricevute, DDT, note
-- 📊 **Formatted Excel export** — headers, column widths, currency format, totals row, summary sheet
-- 🖥️ **CLI** — typer-based with rich progress output
-- 🌐 **Web UI** — optional Gradio drag-and-drop interface
-- 📝 **Configurable** — custom regex patterns via config.json
+- **Batch processing** — drop in 50+ PDFs at once
+- **Smart extraction** — invoice number, date, total, supplier name, VAT (Partita IVA)
+- **Italian invoice support** — patterns for fatture, ricevute, DDT, note
+- **Formatted Excel export** — headers, column widths, currency format, totals row, summary sheet
+- **CLI** — typer-based with rich progress output
+- **Web UI** — optional Gradio drag-and-drop interface
+- **Configurable** — custom regex patterns via config.json
 
 ## Installation
 
@@ -60,7 +78,7 @@ invoice-extract ./invoices/ --list-files
 python -m invoice_extractor.web
 ```
 
-Opens at `http://localhost:7860`. Drag-and-drop PDFs, click "Extract Data", 
+Opens at `http://localhost:7860`. Drag-and-drop PDFs, click "Extract Data",
 download the Excel file.
 
 ### Python API
