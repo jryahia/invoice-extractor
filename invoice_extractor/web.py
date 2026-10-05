@@ -278,7 +278,7 @@ def process_invoices(files: Optional[Sequence[object]]) -> tuple:
     empty_table = {"headers": [name for name, _ in COLUMNS], "data": []}
 
     if not files:
-        return empty_table, None, None, "⚠️ Nessun file caricato. Trascina almeno una fattura PDF."
+        return empty_table, None, None, "Nessun file caricato. Trascina almeno una fattura PDF."
 
     _cleanup_stale_tmp_dirs()
 
@@ -306,7 +306,7 @@ def process_invoices(files: Optional[Sequence[object]]) -> tuple:
             empty_table,
             None,
             None,
-            "❌ Nessun file PDF valido trovato. Carica file con estensione `.pdf`.",
+            "Nessun file PDF valido trovato. Carica file con estensione `.pdf`.",
         )
 
     invoices = extract_batch(pdf_paths, show_progress=False)
@@ -320,7 +320,7 @@ def process_invoices(files: Optional[Sequence[object]]) -> tuple:
         csv_path = str(export_to_csv(invoices, tmp_dir / "fatture_estratte.csv"))
     except OSError as exc:
         logger.error("Esportazione fallita: %s", exc)
-        export_error = f"\n\n❌ **Errore di esportazione:** {exc}"
+        export_error = f"\n\n**Errore di esportazione:** {exc}"
 
     # ── Preview table ────────────────────────────────────────────────────
     headers = [name for name, _ in COLUMNS]
